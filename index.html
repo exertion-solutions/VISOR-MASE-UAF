@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visor 3D Layout Equipamiento y Campamento</title>
+<style>
+  :root{--bg:#0f1720;--panel:#16212d;--line:#2a3a4b;--txt:#e8eef5;--mut:#8da0b3;--red:#e02a2a;--acc:#ffb703}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif}
+  #app{position:fixed;inset:0;display:flex}
+  #side{width:270px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:5}
+  #brand{padding:14px 16px;border-bottom:1px solid var(--line)}
+  #brand b{font-size:22px;font-style:italic;color:var(--red);letter-spacing:1px;font-weight:900}
+  #brand small{display:block;color:var(--mut);font-size:11px;letter-spacing:.5px;margin-top:2px}
+  #list{flex:1;overflow:auto;padding:8px}
+  .grp{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--mut);padding:10px 8px 4px}
+  .item{padding:7px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px}
+  .item:hover{background:#1f2f40}
+  .item.on{background:#27405a;outline:1px solid var(--acc)}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  #main{flex:1;position:relative;min-width:0}
+  canvas{display:block}
+  #title{z-index:3;position:absolute;top:10px;left:0;right:0;text-align:center;font-weight:800;font-size:20px;letter-spacing:1px;text-shadow:0 2px 8px #000;pointer-events:none}
+  #bar{z-index:3;position:absolute;top:48px;left:50%;transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:95%}
+  button{background:#1c2b3a;color:var(--txt);border:1px solid var(--line);padding:6px 11px;border-radius:6px;cursor:pointer;font:inherit}
+  button:hover{border-color:var(--acc)}
+  button.on{background:var(--acc);color:#111;border-color:var(--acc);font-weight:600}
+  #info{position:absolute;right:12px;bottom:12px;width:300px;background:rgba(22,33,45,.95);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:none}
+  #info h3{color:var(--acc);font-size:15px;margin-bottom:4px}
+  #info p{color:var(--txt);font-size:13px}
+  #info .t{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+  #info .x{position:absolute;top:6px;right:8px;cursor:pointer;color:var(--mut)}
+  .lbl{z-index:1;position:absolute;pointer-events:none;font-size:11px;font-weight:700;color:#fff;background:rgba(0,0,0,.55);padding:1px 6px;border-radius:3px;white-space:nowrap;transform:translate(-50%,-100%);text-shadow:0 1px 2px #000}
+  .lbl.sel{background:var(--acc);color:#111}
+  #help{position:absolute;left:12px;bottom:10px;color:var(--mut);font-size:11px;pointer-events:none}
+  #menu{display:none;position:absolute;top:10px;left:10px;z-index:6}
+  @media(max-width:760px){#side{position:absolute;inset:0 auto 0 0;transform:translateX(-100%);transition:.2s}#side.open{transform:none}#menu{display:block}#title{font-size:14px;left:60px}#info{width:calc(100% - 24px)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <div id="brand"><b>TACKER</b><small>LAY OUT EQUIPAMIENTO Y CAMPAMENTO</small></div>
+    <div id="list"></div>
+  </aside>
+  <div id="main">
+    <button id="menu">☰ Equipos</button>
+    <div id="title">LAY OUT EQUIPAMIENTO Y CAMPAMENTO</div>
+    <div id="bar">
+      <button data-v="iso" class="on">Isométrica</button>
+      <button data-v="top">Planta</button>
+      <button data-v="front">Frontal</button>
+      <button data-v="camp">Campamento</button>
+      <button data-v="well">Boca de pozo</button>
+      <button data-v="pit">Fosa de quema</button>
+      <button id="tLbl" class="on">Etiquetas</button>
+      <button id="tFire" class="on">Fuego</button>
+      <button id="tRot">Rotar</button>
+    </div>
+    <div id="info"><span class="x" id="ix">✕</span><div class="t" id="it"></div><h3 id="in"></h3><p id="id"></p></div>
+    <div id="help">Arrastrar: orbitar · Rueda: zoom · Click derecho: desplazar · Click en equipo: detalle</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+'use strict';
+const main = document.getElementById('main');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xbfd3e6);
+scene.fog = new THREE.Fog(0xbfd3e6, 120, 260);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 600);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+main.insertBefore(renderer.domElement, main.firstChild);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI/2 - 0.02;
+controls.minDistance = 4; controls.maxDistance = 200;
+
+// ---------- luces ----------
+scene.add(new THREE.HemisphereLight(0xffffff, 0x6b5a45, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(-40, 70, 40);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left:-80,right:80,top:60,bottom:-60,near:1,far:220});
+scene.add(sun);
+
+// ---------- helpers ----------
+const M = (c, o={}) => new THREE.MeshStandardMaterial(Object.assign({color:c, roughness:.6, metalness:.25}, o));
+const C = {
+  red:M(0xb3201c), redD:M(0x8a1714), yel:M(0xf2c400), grey:M(0xb8bcc2,{metalness:.4}), dgrey:M(0x4a4f57,{metalness:.5}),
+  white:M(0xf1f1f1,{metalness:.1}), blue:M(0x4a8fd6), pink:M(0xe9a3bd), purple:M(0x4b2f7a), light:M(0x45b0d9),
+  black:M(0x151515), green:M(0x2f8f3f), soil:M(0x6b5238,{roughness:1,metalness:0}), glass:M(0x101820,{metalness:.8,roughness:.2}),
+  teal:new THREE.LineBasicMaterial({color:0x1b6f8a})
+};
+const P = (px,py) => new THREE.Vector3((px-900)/22, 0, (py-450)/22); // pixel del plano -> mundo (m aprox.)
+function mesh(geo, mat, x=0,y=0,z=0){ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; return m; }
+const box=(w,h,d,mat,x,y,z)=>mesh(new THREE.BoxGeometry(w,h,d),mat,x,y,z);
+const cyl=(r,h,mat,x,y,z,seg=20)=>mesh(new THREE.CylinderGeometry(r,r,h,seg),mat,x,y,z);
+function hcyl(r,len,mat,x,y,z,axis='x'){ const m=cyl(r,len,mat,x,y,z); if(axis==='x') m.rotation.z=Math.PI/2; else m.rotation.x=Math.PI/2; return m; }
+
+const picks = []; // grupos seleccionables
+const labelsEl = [];
+function equip(id, name, group, type, desc, color, pos, labelY, build){
+  const g = new THREE.Group(); g.position.copy(pos);
+  build(g);
+  g.userData = {id, name, group, type, desc, color, labelY};
+  scene.add(g); picks.push(g);
+  const el = document.createElement('div'); el.className='lbl'; el.textContent=name; main.appendChild(el);
+  labelsEl.push({el, g});
+  return g;
+}
+function pipe(pts, mat, r=0.28){
+  const g = new THREE.Group();
+  for(let i=0;i<pts.length-1;i++){
+    const a=pts[i], b=pts[i+1], d=b.clone().sub(a), len=d.length();
+    const m=mesh(new THREE.CylinderGeometry(r,r,len,14), mat);
+    m.position.copy(a.clone().add(b).multiplyScalar(.5));
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), d.normalize());
+    g.add(m);
+    if(i>0) g.add(mesh(new THREE.SphereGeometry(r*1.15,14,10), mat, a.x,a.y,a.z));
+  }
+  scene.add(g); return g;
+}
+const L = (v,y=0.9)=>new THREE.Vector3(v.x,y,v.z);
+
+// ---------- suelo ----------
+const ground = mesh(new THREE.PlaneGeometry(190,110), M(0xa89877,{roughness:1,metalness:0}), 12,0,0);
+ground.rotation.x=-Math.PI/2; ground.castShadow=false; scene.add(ground);
+const grid = new THREE.GridHelper(190, 38, 0x7d6f52, 0x9a8a68); grid.position.set(12,0.02,0);
+grid.material.transparent=true; grid.material.opacity=.35; scene.add(grid);
+// locación (plataforma)
+const pad = mesh(new THREE.BoxGeometry(124,0.15,56), M(0x8d8165,{roughness:1,metalness:0}), 18,0.07,2); pad.castShadow=false; scene.add(pad);
+
+// ---------- CAMPAMENTO ----------
+const campGroup = new THREE.Group(); scene.add(campGroup);
+function trailer(g,x,z,rot=0){
+  const t=new THREE.Group();
+  t.add(box(8.5,2.8,3,C.white,0,1.9,0));
+  t.add(box(8.6,0.35,3.1,C.red,0,2.0,0));
+  t.add(box(8.7,0.18,3.2,C.dgrey,0,0.5,0));
+  for(let i=-1;i<=1;i++) t.add(box(1.1,0.9,.06,C.glass,i*2.3,2.3,1.53));
+  t.add(box(1.0,2.0,.06,C.grey,3.3,1.5,1.53));
+  t.add(box(1.0,0.7,.5,C.grey,-3.4,3.1,1.7)); // aire acond.
+  t.add(box(8.2,0.15,.8,C.dgrey,0,0.35,1.9)); // escalon
+  t.position.set(x,0,z); t.rotation.y=rot; g.add(t);
+}
+equip('camp','Trailers habitacionales','Campamento','Alojamiento',
+  'Módulos habitacionales para el personal de operación. Ubicados en zona segura, a barlovento de la boca de pozo y de la fosa de quema.',
+  0xffffff, P(370,230), 8.5, g=>{
+  trailer(g,-4,4,0); trailer(g,-2,0,0); trailer(g,2,-4,0); trailer(g,6,-8,0);
+});
+campGroup.add(picks[picks.length-1]);
+function tank(g,mat,len,r,label){
+  g.add(hcyl(r,len,mat,0,r+0.6,0));
+  g.add(box(len+.6,.4,r*2+.6,C.dgrey,0,0.4,0));
+  g.add(box(1.4,1.6,1.2,C.white,len/2-1,r+0.4,r+.5));
+}
+campGroup.add(equip('tAgua','Tanque agua','Campamento','Servicios','Tanque de agua para el campamento.',0x4a8fd6, P(630,205),5.5,g=>tank(g,C.blue,5,1.5)));
+campGroup.add(equip('tGas','Tanque gasoil','Campamento','Servicios','Tanque de combustible. Mantener distancia a fuentes de ignición y cubeto de contención.',0xe9a3bd, P(700,200),5.5,g=>tank(g,C.pink,5,1.5)));
+campGroup.add(equip('usina','Usina','Campamento','Energía','Contenedor de generación eléctrica del campamento.',0xb8bcc2, P(790,180),5,g=>{
+  g.add(box(12,2.6,2.6,M(0x9aa0a6,{metalness:.5}),0,1.9,0));
+  for(let i=-5;i<=5;i++) g.add(box(.05,2.5,2.65,C.dgrey,i*1.05,1.9,0));
+}));
+
+// ---------- BOCA DE POZO ----------
+const wellPos = P(630,400);
+equip('pozo','Boca de pozo','Línea de flujo','Cabezal','Árbol de producción / cabezal de pozo (wellhead). Punto de origen de la línea de flujo hacia el equipo de ensayo.',0xe02a2a, wellPos,6.8,g=>{
+  g.add(cyl(.7,.6,C.dgrey,0,.3,0));
+  g.add(cyl(.5,1.2,C.red,0,1.2,0));
+  g.add(hcyl(.28,3.6,C.red,0,1.8,0)); g.add(hcyl(.28,2.6,C.red,0,1.8,0,'z'));
+  [-1.7,1.7].forEach(x=>g.add(cyl(.5,.35,C.green,x,1.8,0).rotateZ(Math.PI/2)));
+  g.add(cyl(.45,1.4,C.red,0,3.0,0)); g.add(cyl(.55,.3,C.yel,0,2.4,0));
+  g.add(cyl(.3,1.0,C.red,0,4.2,0)); g.add(cyl(.5,.2,C.dgrey,0,4.8,0));
+  g.add(cyl(.13,1.1,C.dgrey,0,5.5,0));
+  // codo
+  g.add(hcyl(.28,1.6,C.red,2.4,1.8,0));
+  g.add(mesh(new THREE.SphereGeometry(.34,14,10),C.red,3.2,1.8,0));
+});
+// ---------- VÁLVULA SSV ----------
+equip('ssv','Válvula SSV','Línea de flujo','Seguridad','Válvula de cierre de seguridad de superficie (Surface Safety Valve) sobre la línea de flujo. Cierre de emergencia ante sobrepresión o falla.',0xe02a2a, P(803,440),4.4,g=>{
+  g.add(box(2,.3,1.6,C.dgrey,0,.15,0));
+  [-.8,.8].forEach(x=>{ [-.65,.65].forEach(z=>g.add(box(.15,2.6,.15,C.red,x,1.5,z))); });
+  g.add(box(1.8,.15,1.5,C.red,0,2.8,0)); g.add(box(1.8,.15,1.5,C.red,0,.5,0));
+  g.add(box(.8,.9,.8,C.red,0,1.4,0));
+  g.add(cyl(.28,.9,C.yel,0,3.3,0));
+});
+// ---------- PLUG CATCHER ----------
+equip('plug','Plug catcher','Línea de flujo','Recuperación','Recolector de tapones / pig / esferas que retorna con el flujo. Con bypass y válvulas de aislamiento.',0xe02a2a, P(945,480),4.2,g=>{
+  g.add(hcyl(.4,5.5,C.red,0,2,-0.9));
+  g.add(hcyl(.28,5.5,C.red,0,.9,1.0));
+  [-2.4,2.4].forEach(x=>g.add(cyl(.28,2.4,C.red,x,1.5,0).rotateX(Math.PI/2)));
+  g.add(cyl(.55,.5,C.yel,2.9,2,-0.9).rotateZ(Math.PI/2));
+  [-1,0.2,1.4].forEach(x=>{ g.add(cyl(.35,.3,C.green,x,.9,1.0)); g.add(cyl(.05,1,C.dgrey,x,1.6,1.0)); g.add(cyl(.35,.12,C.yel,x,2.15,1.0).rotateX(Math.PI/2)); });
+});
+// ---------- DESANDER ----------
+equip('desander','Desander','Línea de flujo','Separación','Desarenador: separa arena y sólidos del fluido de retorno antes del manifold de choke.',0xb3201c, P(1105,490),8,g=>{
+  g.add(box(4.5,.4,4.5,C.dgrey,0,.2,0));
+  [-2,2].forEach(x=>[-2,2].forEach(z=>g.add(box(.25,6.4,.25,C.redD,x,3.4,z))));
+  for(let y of [.8,3.4,6.4]) g.add(box(4.5,.25,4.5,C.redD,0,y,0));
+  [-1,1].forEach(x=>g.add(cyl(.7,5.4,C.red,x,3.4,0)));
+  g.add(box(.2,6,.2,C.dgrey,0,3.4,2.1));
+});
+// ---------- CHOKE MANIFOLD ----------
+equip('choke','Choke manifold','Línea de flujo','Control de flujo','Manifold de estrangulamiento (choke). Regula presión y caudal; salida a fosa de quema y a pileta de ensayo.',0xe02a2a, P(1235,550),5.4,g=>{
+  g.add(box(6,.3,4,C.dgrey,0,.15,0));
+  [-1.2,0,1.2].forEach(z=>{ g.add(hcyl(.28,5.2,C.red,0,.9,z)); });
+  [-1.2,1.2].forEach(x=>g.add(cyl(.28,3.2,C.red,x*1.4,.9,0).rotateX(Math.PI/2)));
+  [-2,-.8,.8,2].forEach(x=>[-1.2,1.2].forEach(z=>{ g.add(cyl(.45,.5,C.red,x,1.3,z)); g.add(cyl(.05,1.3,C.dgrey,x,2.1,z)); g.add(cyl(.45,.1,C.yel,x,2.7,z)); }));
+  g.add(cyl(.4,1.4,C.dgrey,0,1.6,0)); // choke
+  g.add(cyl(.55,.2,C.green,0,2.4,0));
+});
+// ---------- PILETA CON TORNILLO ----------
+function pit(g,w,h,d,mat,steps){
+  g.add(box(w,h,d,mat,0,h/2+.5,0));
+  g.add(box(w+.4,.4,d+.4,C.dgrey,0,.2,0));
+  // baranda
+  const by=h+1.4;
+  g.add(box(w,.08,.08,C.dgrey,0,by,d/2)); g.add(box(w,.08,.08,C.dgrey,0,by,-d/2));
+  for(let i=-w/2;i<=w/2;i+=w/6) { g.add(box(.08,.9,.08,C.dgrey,i,h+1,d/2)); g.add(box(.08,.9,.08,C.dgrey,i,h+1,-d/2)); }
+  if(steps){ for(let i=0;i<8;i++) g.add(box(1.2,.12,.5,C.yel,-w/2-1.3+i*.1,.5+i*.5,d/2+.3+ (7-i)*0.0)); g.add(box(.1,4,1,C.yel,-w/2-1.9,2.5,d/2+.3)); }
+}
+equip('tornillo','Pileta con tornillo','Piletas','Pileta','Pileta con transportador a tornillo para manejo de sólidos y retorno del fluido.',0xb3201c, P(1315,340),6.6,g=>{
+  pit(g,12,3.2,4.2,C.redD,false);
+  g.add(hcyl(.45,9,C.dgrey,0,4.3,-1)); // tornillo
+  g.rotation.y=-.08;
+});
+equip('bomba','Bomba trasvase','Piletas','Bombeo','Skid de bombas de trasvase de fluido entre piletas.',0xb3201c, P(1430,392),4.2,g=>{
+  g.add(box(5,.3,3,C.dgrey,0,.15,0));
+  [-1.2,1.2].forEach(x=>{ g.add(box(1.4,1.4,1.4,C.red,x,1.0,0)); g.add(cyl(.5,1.2,C.redD,x,2.1,0)); g.add(hcyl(.18,1.4,C.dgrey,x+1.2,1.2,0)); });
+  g.add(box(.3,1.6,2,C.yel,0,1.1,0));
+});
+equip('pileta1','Pileta de (1)','Piletas','Pileta','Pileta de almacenamiento de fluido, con escalera de acceso.',0xb3201c, P(1600,420).add(new THREE.Vector3(0,0,-3.5)),6.6,g=>{ pit(g,11,3.4,4.6,C.red,true); });
+equip('pileta2','Pileta de (2)','Piletas','Pileta','Pileta de almacenamiento de fluido, con escalera de acceso.',0xb3201c, P(1790,418).add(new THREE.Vector3(0,0,-3.5)),6.6,g=>{ pit(g,11,3.4,4.6,C.red,true); });
+equip('ensayo','Pileta de ensayo','Piletas','Pileta','Pileta de ensayo (test tank) con chimenea de venteo y barandas. Recibe el flujo del manifold.',0xb3201c, P(1555,490),9.2,g=>{
+  pit(g,14,3.2,4.8,C.redD,false);
+  g.add(box(2.5,1.8,2.8,C.red,-4,5.3,0));
+  g.add(cyl(.35,5,C.dgrey,3.5,4.4,0)); g.add(cyl(.5,.3,C.dgrey,3.5,7,0));
+  g.add(cyl(.35,3,C.dgrey,3.5,2.2,0));
+});
+// ---------- GENERADOR AUXILIAR ----------
+equip('gen','Generador auxiliar','Servicios','Energía','Grupo electrógeno auxiliar para iluminación y equipos del área de ensayo.',0xf2c400, P(1625,255),4,g=>{
+  g.add(box(4.2,.3,2.2,C.dgrey,0,.15,0)); g.add(box(4,2.2,2,C.yel,0,1.4,0));
+  g.add(box(1.4,.9,.05,C.black,0,1.6,1.03)); g.add(cyl(.12,1,C.dgrey,1.4,3.4,0));
+});
+// ---------- COMMAND CENTER ----------
+equip('cc','Command center','Servicios','Control','Centro de comando del ensayo. Desde aquí se monitorean las válvulas del plug catcher, el desander y el choke manifold (líneas de señal).',0x1b6f8a, P(940,645),4.6,g=>{
+  g.add(box(10,3,3.4,M(0xd2d5d8,{metalness:.35}),0,1.8,0));
+  g.add(box(10.1,.25,3.5,C.dgrey,0,.5,0));
+  g.add(box(10.1,.2,3.5,C.dgrey,0,3.4,0));
+  g.add(box(1,2,.08,C.grey,-3.2,1.5,1.75)); g.add(box(1.4,.9,.08,C.glass,1,2.1,1.75));
+});
+// ---------- ENCENDIDO A DISTANCIA ----------
+equip('ign','Encendido a distancia','Fosa de quema','Seguridad','Panel de encendido remoto del quemador de fosa con tubo de gas (GLP) para el piloto. Operar a distancia segura.',0xffb703, P(1280,720),3.8,g=>{
+  g.add(cyl(.05,2.4,C.dgrey,-.8,1.2,0)); g.add(box(1.3,1.5,.25,C.grey,-.8,2.3,0));
+  g.add(box(.4,.4,.05,C.blue,-.95,2.5,.15)); g.add(box(.4,.4,.05,C.blue,-.65,2.5,.15)); g.add(box(.4,.4,.05,C.blue,-.8,2.1,.15));
+  g.add(cyl(.5,1.5,C.white,.7,.8,0)); g.add(mesh(new THREE.SphereGeometry(.5,14,10),C.white,.7,1.55,0));
+  g.add(cyl(.18,.25,C.dgrey,.7,1.95,0));
+});
+// ---------- FOSA DE QUEMA ----------
+const fire = new THREE.Group();
+const pitPos = P(1860,640);
+equip('fosa','Fosa de quema','Fosa de quema','Quemador','Fosa de quema (burn pit) para disposición controlada de gas y fluido de ensayo. Mantener la distancia de seguridad.',0xff6a00, pitPos,12,g=>{
+  const m=mesh(new THREE.ConeGeometry(9,3,24,1,true), C.soil); m.position.y=1.5; m.scale.z=.8; g.add(m);
+  const top=mesh(new THREE.CylinderGeometry(4.5,6,.5,24), M(0x2b2118,{roughness:1,metalness:0}),0,2.9,0); top.scale.z=.8; g.add(top);
+  for(let i=0;i<14;i++){ const a=i/14*6.28; g.add(mesh(new THREE.DodecahedronGeometry(.7+Math.random()*.5),M(0x5a4631,{roughness:1,metalness:0}),Math.cos(a)*5.5,.7,Math.sin(a)*4.4)); }
+  fire.position.y=3.2; g.add(fire);
+});
+const flameMats=[0xff3d00,0xff8c00,0xffd24a].map(c=>new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.75,blending:THREE.AdditiveBlending,depthWrite:false}));
+const flames=[];
+for(let i=0;i<9;i++){
+  const k=i%3, h=[7,5.5,4][k];
+  const f=new THREE.Mesh(new THREE.ConeGeometry([1.8,1.3,.8][k],h,10,1,true), flameMats[k]);
+  f.position.set((Math.random()-.5)*3.5,h/2,(Math.random()-.5)*2.5);
+  f.userData={h,ph:Math.random()*10,sp:4+Math.random()*4};
+  fire.add(f); flames.push(f);
+}
+const fireLight = new THREE.PointLight(0xff7a1a, 1.2, 22); fireLight.position.set(pitPos.x,8,pitPos.z); scene.add(fireLight);
+
+// ---------- LÍNEAS / TUBERÍA ----------
+const pipes = new THREE.Group(); scene.add(pipes);
+const add = g=>pipes.add(g);
+const wp = P(630,400);
+add(pipe([L(wp.clone().add(new THREE.Vector3(3.2,0,0)),1.8), L(P(803,440)), L(P(945,480)), L(P(1105,490)), L(P(1230,545))], C.red));
+add(pipe([L(P(1025,470)), L(P(1080,412)), L(P(1195,440)), L(P(1270,375),1.9)], C.red));           // a pileta tornillo
+add(pipe([L(P(1250,545)), L(P(1360,578)), L(P(1415,545)), L(P(1450,505),1.4)], C.red));             // a pileta ensayo
+add(pipe([L(P(1420,405),1.2), L(P(1545,420),1.8)], C.red,.22));                                    // trasvase
+add(pipe([L(P(1290,553),.9), L(P(1500,598),.9), L(P(1760,662),.9)], C.purple,.3));                  // choke -> fosa
+add(pipe([L(P(1660,522),1.2), L(P(1750,580),1.2), L(P(1800,625),2.2)], C.light,.3));               // ensayo -> fosa
+// líneas de señal al command center
+const ccP = P(940,645);
+[[945,515],[1090,560],[1185,585]].forEach(([x,y])=>{
+  const a=P(x,y); const pts=[new THREE.Vector3(ccP.x,4,ccP.z), new THREE.Vector3(a.x,4,a.z)];
+  const ln=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), C.teal); pipes.add(ln);
+});
+
+// ---------- UI ----------
+const listEl=document.getElementById('list');
+const groups={}; picks.forEach(g=>{(groups[g.userData.group]=groups[g.userData.group]||[]).push(g);});
+Object.keys(groups).forEach(k=>{
+  const h=document.createElement('div'); h.className='grp'; h.textContent=k; listEl.appendChild(h);
+  groups[k].forEach(g=>{
+    const d=document.createElement('div'); d.className='item'; d.dataset.id=g.userData.id;
+    d.innerHTML=`<span class="dot" style="background:#${g.userData.color.toString(16).padStart(6,'0')}"></span>${g.userData.name}`;
+    d.onclick=()=>{select(g,true); document.getElementById('side').classList.remove('open');};
+    listEl.appendChild(d);
+  });
+});
+const info=document.getElementById('info');
+let selected=null;
+function select(g,fly){
+  selected=g;
+  document.querySelectorAll('.item').forEach(e=>e.classList.toggle('on',g&&e.dataset.id===g.userData.id));
+  labelsEl.forEach(l=>l.el.classList.toggle('sel',l.g===g));
+  if(!g){info.style.display='none';return;}
+  const u=g.userData;
+  document.getElementById('it').textContent=u.group+' · '+u.type;
+  document.getElementById('in').textContent=u.name;
+  document.getElementById('id').textContent=u.desc;
+  info.style.display='block';
+  if(fly){ const t=g.position.clone(); t.y=2; flyTo(t.clone().add(new THREE.Vector3(20,15,24)), t); }
+}
+document.getElementById('ix').onclick=()=>select(null);
+
+// vistas
+const VIEWS={
+  iso:[new THREE.Vector3(-20,62,92), new THREE.Vector3(18,0,0)],
+  top:[new THREE.Vector3(26,115,.1), new THREE.Vector3(26,0,0)],
+  front:[new THREE.Vector3(26,16,85), new THREE.Vector3(26,3,0)],
+  camp:[new THREE.Vector3(-30,22,12), new THREE.Vector3(-5,2,-10)],
+  well:[new THREE.Vector3(-14,12,22), wellPos.clone().add(new THREE.Vector3(6,2,0))],
+  pit:[P(1650,780).add(new THREE.Vector3(0,16,0)), pitPos.clone().setY(3)]
+};
+let anim=null;
+function flyTo(pos,tgt){ anim={t:0,p0:camera.position.clone(),t0:controls.target.clone(),p1:pos,t1:tgt}; }
+document.querySelectorAll('#bar [data-v]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#bar [data-v]').forEach(x=>x.classList.toggle('on',x===b));
+  flyTo(...VIEWS[b.dataset.v]);
+});
+let showL=true, showF=true;
+const tLbl=document.getElementById('tLbl'), tFire=document.getElementById('tFire'), tRot=document.getElementById('tRot');
+tLbl.onclick=()=>{showL=!showL; tLbl.classList.toggle('on',showL);};
+tFire.onclick=()=>{showF=!showF; tFire.classList.toggle('on',showF); fire.visible=showF; fireLight.visible=showF;};
+tRot.onclick=()=>{controls.autoRotate=!controls.autoRotate; controls.autoRotateSpeed=1.2; tRot.classList.toggle('on',controls.autoRotate);};
+document.getElementById('menu').onclick=()=>document.getElementById('side').classList.toggle('open');
+
+// picking
+const ray=new THREE.Raycaster(), mouse=new THREE.Vector2();
+let down=null;
+renderer.domElement.addEventListener('pointerdown',e=>{down=[e.clientX,e.clientY];});
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>5) return;
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.set((e.clientX-r.left)/r.width*2-1, -(e.clientY-r.top)/r.height*2+1);
+  ray.setFromCamera(mouse,camera);
+  const hit=ray.intersectObjects(picks,true)[0];
+  if(!hit){select(null);return;}
+  let o=hit.object; while(o&&!o.userData.id) o=o.parent;
+  select(o,false);
+});
+
+function resize(){
+  const w=main.clientWidth,h=main.clientHeight;
+  renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+addEventListener('resize',resize); resize();
+camera.position.copy(VIEWS.iso[0]); controls.target.copy(VIEWS.iso[1]);
+
+// ---------- loop ----------
+const clock=new THREE.Clock(), tmp=new THREE.Vector3();
+function loop(){
+  requestAnimationFrame(loop);
+  const dt=clock.getDelta(), t=clock.elapsedTime;
+  if(anim){
+    anim.t=Math.min(1,anim.t+dt/1.2);
+    const k=anim.t<.5?2*anim.t*anim.t:1-Math.pow(-2*anim.t+2,2)/2;
+    camera.position.lerpVectors(anim.p0,anim.p1,k); controls.target.lerpVectors(anim.t0,anim.t1,k);
+    if(anim.t>=1) anim=null;
+  }
+  if(showF){
+    flames.forEach(f=>{ const s=.75+.35*Math.sin(t*f.userData.sp+f.userData.ph); f.scale.set(1+.15*Math.sin(t*7+f.userData.ph),s,1+.15*Math.cos(t*6+f.userData.ph)); f.position.y=f.userData.h*s/2; f.rotation.y=t*2; });
+    fireLight.intensity=1.1+Math.sin(t*20)*.3+Math.sin(t*13)*.2;
+  }
+  controls.update();
+  renderer.render(scene,camera);
+  const w=main.clientWidth,h=main.clientHeight;
+  labelsEl.forEach(({el,g})=>{
+    if(!showL){el.style.display='none';return;}
+    tmp.copy(g.position); tmp.y=g.userData.labelY; tmp.project(camera);
+    if(tmp.z>1){el.style.display='none';return;}
+    el.style.display='block'; el.style.left=((tmp.x+1)/2*w)+'px'; el.style.top=((1-tmp.y)/2*h)+'px';
+  });
+}
+loop();
+window.__scene={scene,camera,controls,picks};
+})();
+</script>
+</body>
+</html>
