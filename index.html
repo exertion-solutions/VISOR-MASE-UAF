@@ -210,8 +210,8 @@ function rail(g,x1,z1,x2,z2,y,h=1){
   const n=Math.max(2,Math.round(len/1.6));
   for(let i=0;i<=n;i++){ g.add(bx(.05,h,.05,C.yel,x1+dx*i/n,y+h/2,z1+dz*i/n)); }
 }
-function label3(text,w,h,fg='#b3201b',bg='#f4f4f4'){
-  const t=canvasTex(256,(g,s)=>{ g.fillStyle=bg; g.fillRect(0,0,s,s); g.fillStyle=fg; g.font='italic 900 62px Arial'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,s/2,s/2); });
+function label3(text,w,h,fg='#b3201b',bg='#f4f4f4',fs=62){
+  const t=canvasTex(256,(g,s)=>{ g.fillStyle=bg; g.fillRect(0,0,s,s); g.fillStyle=fg; g.font=`italic 900 ${fs}px Arial`; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,s/2,s/2); });
   return mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map:t,roughness:.6}));
 }
 
@@ -263,24 +263,26 @@ const pad=mesh(new THREE.BoxGeometry(150,.12,66),ST(0xffffff,{map:padMap,bumpMap
   const t=label3('FLUJO  →',6,1.4,'#1f78d6','rgba(0,0,0,0)'); t.material.transparent=true; t.rotation.x=-Math.PI/2; t.position.set(1,.16,31); t.material.map.colorSpace=THREE.SRGBColorSpace; scene.add(t); }
 
 // ================== CAMPAMENTO ==================
-function trailer(g,cx,cz){
-  const t=new THREE.Group(); const L=6.1,Wd=2.8;
-  [-2.2,0,2.2].forEach(x=>t.add(bx(.25,.35,Wd+.4,C.dark,x,.22,0)));
+function trailer(g,cx,cz,o={}){
+  const t=new THREE.Group(); const L=o.L||12.2,Wd=o.W||3.0,H=2.65;
+  [-.36,0,.36].forEach(k=>t.add(bx(.25,.35,Wd+.4,C.dark,k*L,.22,0)));
   [-1,1].forEach(z=>t.add(bx(L+.3,.22,.22,C.dark,0,.42,z*(Wd/2-.2))));
-  t.add(rb(L,2.65,Wd,corrugated(0xf1f1ef,6),0,1.78,0,.06));
+  t.add(rb(L,H,Wd,corrugated(o.color||0xf1f1ef,Math.round(L*1.5)),0,1.78,0,.06));
   t.add(rb(L+.04,.28,Wd+.04,C.red,0,1.3,0,.02));
   t.add(rb(L+.15,.12,Wd+.15,C.whiteS,0,3.16,0,.04));
-  [-2.1,2.0].forEach(x=>{ t.add(rb(1.25,.95,.07,C.dark,x,2.35,Wd/2+.02,.02)); t.add(bx(1.1,.8,.02,C.glass,x,2.35,Wd/2+.06)); });
-  t.add(rb(.95,2.0,.08,C.galv,-.05,1.55,Wd/2+.02,.02)); t.add(bx(.85,.5,.02,C.glass,-.05,2.2,Wd/2+.07));
-  t.add(bx(1.4,.08,.9,C.plate,-.05,.72,Wd/2+.55)); rail(t,-.75,Wd/2+1,.65,Wd/2+1,.72,.9);
-  [-1.9,1.9].forEach(x=>{ t.add(rb(.95,.55,.45,C.whiteS,x,2.6,-Wd/2-.25,.05)); t.add(cyZ(.18,.04,C.dark,x,2.6,-Wd/2-.5)); });
+  const n=Math.max(2,Math.round(L/3)),xs=[]; for(let i=0;i<n;i++) xs.push((i-(n-1)/2)*(L-1.6)/Math.max(1,n-1)*(n>1?1:0));
+  [-1,1].forEach(sz=>xs.forEach(x=>{ t.add(rb(1.25,.95,.07,C.dark,x,2.35,sz*(Wd/2+.02),.02)); t.add(bx(1.1,.8,.02,C.glass,x,2.35,sz*(Wd/2+.06))); }));
+  // puerta en el extremo que mira al pozo (+x) con escalones y baranda
+  t.add(rb(.08,2.0,.95,C.galv,L/2+.02,1.55,0,.02)); t.add(bx(.02,.5,.85,C.glass,L/2+.07,2.2,0));
+  t.add(bx(.9,.08,1.4,C.plate,L/2+.55,.72,0)); [-1,1].forEach(sz=>rail(t,L/2+.4,sz*.7,L/2+1.0,sz*.7,.72,.9));
+  [-1,1].forEach(sx=>{ t.add(rb(.45,.55,.95,C.whiteS,sx*(L/2-1.4),2.6,-Wd/2-.25,.05)); t.add(cyZ(.18,.04,C.dark,sx*(L/2-1.4),2.6,-Wd/2-.5)); });
   t.add(cy(.12,.4,C.dark,1.0,3.5,0,10)); t.add(cy(.12,.4,C.dark,-1.0,3.5,.7,10));
-  const lg=label3('TACKER',.95,.3); lg.position.set(-1.0,1.3,Wd/2+.07); t.add(lg);
-  t.position.set(cx,0,cz); t.rotation.y=Math.PI/2; g.add(t);   // fachada hacia +x (el pozo)
+  const lg=label3(o.name||'TACKER',o.name?2.6:1.6,o.name?.45:.4,'#b3201b','#f4f4f4',o.name?30:62); lg.position.set(-L/2-.07,1.6,0); lg.rotation.y=-Math.PI/2; t.add(lg);
+  t.position.set(cx,0,cz); g.add(t);
 }
 const camp=equip('camp','Trailers habitacionales','Campamento','Alojamiento','Módulos habitacionales para el personal de operación. Zona segura, a barlovento de la boca de pozo y de la fosa de quema.',0xffffff,W(140,600),5,g=>{
-  [-7.86,-1.06,5.74,12.54].forEach(z=>trailer(g,0,z));
-  g.add(bx(4.6,.1,28.5,C.concrete,0,.05,2.35));
+  [-7.86,-3.66,.54,4.74].forEach(z=>trailer(g,0,z));
+  g.add(bx(14.4,.1,17.6,C.concrete,0,.05,-1.56));
 });
 // Tanque de gasoil horizontal de 10.000 L en cubeto, según foto
 function hTank(g,kind='gasoil'){
@@ -555,13 +557,8 @@ equip('gen','Generador auxiliar','Servicios','Energía','Grupo electrógeno auxi
   g.add(cy(.14,.8,C.dark,-1.4,3.0,0,10)); g.add(cy(.2,.05,C.steel,-1.4,3.45,0,10)); g.add(rb(.8,.6,.1,C.dark,-1.2,1.5,1.03,.02));
 });
 equip('cc','Command center','Servicios','Control','Centro de comando del ensayo: monitoreo de plug catcher, desander y choke manifold (líneas de señal).',0x1b6f8a,W(775,745),4.8,g=>{
-  g.add(bx(14,.12,5.4,C.concrete,0,.06,0));
-  g.add(rb(12.2,2.9,3.0,corrugated(0xdcdedf,24,.5,.35),0,1.85,0,.05));
-  g.add(rb(12.3,.3,3.1,C.dark,0,.45,0,.03)); g.add(rb(12.3,.2,3.1,C.dark,0,3.35,0,.03));
-  g.add(rb(.9,2.0,.1,C.galv,-3.5,1.6,-1.54,.02)); [-1.5,.5,2.5].forEach(x=>{ g.add(rb(1.4,.9,.08,C.dark,x,2.1,-1.54,.02)); g.add(bx(1.25,.75,.02,C.glass,x,2.1,-1.59)); });
-  g.add(bx(2,.1,1.1,C.plate,-3.5,.62,-2.15)); [-1.2,1.2].forEach(s=>g.add(bx(.04,.9,.04,C.yel,-3.5+s,1.1,-2.55)));
-  [3.8,5.2].forEach(x=>{ g.add(rb(1.0,.6,.45,C.whiteS,x,2.85,1.7,.05)); g.add(cyZ(.17,.04,C.dark,x,2.85,1.95)); });
-  g.add(rb(.1,2.4,2.4,C.galv,6.12,1.8,0,.02)); g.add(rb(.1,2.4,2.4,C.galv,-6.12,1.8,0,.02));
+  g.add(bx(8.2,.12,5,C.concrete,0,.06,0));
+  trailer(g,0,0,{L:6.1,W:2.8,color:0xdcdedf,name:'COMMAND CENTER'});
 });
 equip('ign','Encendido a distancia','Fosa de quema','Seguridad','Panel de encendido remoto del quemador de fosa con tubo de GLP para el piloto. Operar a distancia segura.',0xffb703,W(1170,775),3.8,g=>{
   g.add(cy(.05,2.0,C.dark,-.9,1.0,0,8)); g.add(rb(1.1,1.4,.35,C.galv,-.9,2.1,0,.04));
@@ -630,7 +627,7 @@ for(let x=W(1100,0).x; x<W(1500,0).x; x+=5.5) pipes.add(bx(.5,.8,.5,C.dark,x,.4,
 // líneas de señal / cables
 function dashed(pts,color,dash=.5,gap=.35){ const g=new THREE.BufferGeometry().setFromPoints(pts); const l=new THREE.Line(g,new THREE.LineDashedMaterial({color,dashSize:dash,gapSize:gap})); l.computeLineDistances(); scene.add(l); }
 const ccTop=W(775,745,.12);
-[[663,490,745,655,700],[845,520,785,635,700],[952,580,825,655,700]].forEach(([x,y,xb,yb,yc])=>dashed([W(x,y,.15),W(x,yb,.15),W(xb,yb,.15),W(xb,yc,.15)],0x1f6fd1));
+[[663,490,745,655,713],[845,520,775,635,713],[952,580,805,655,713]].forEach(([x,y,xb,yb,yc])=>dashed([W(x,y,.15),W(x,yb,.15),W(xb,yb,.15),W(xb,yc,.15)],0x1f6fd1));
 dashed([W(1520,640,.15),W(1520,800,.15),W(1220,800,.15)],0x444444);
 
 // ---------- UI ----------
