@@ -311,9 +311,6 @@ function vtank(g,mat,name){
   g.add(cy(.45,.14,C.steel,0,5.1,0,16)); g.add(cy(.12,.5,C.dark,1.2,5.0,.5,8));
   for(let y=1.4;y<5;y+=1.2) g.add(tor(2.52,.05,C.steel,0,y,0));
   ladder(g,2.35,0,4.5,-Math.PI/2); rail(g,-1,-1,1,-1,5.0,.6);
-  g.add(cyZ(.14,3,C.red,3,.9,-1.4)); g.add(cyZ(.14,3,C.blueP,3.4,.9,-1.4));
-  g.add(cyX(.12,1.4,C.red,2.2,.9,2.0)); gateValve(g,3.0,.9,2.0,'x');
-  g.add(cyZ(.12,3,C.yel,3.8,.9,0));
   { const l=label3(name,2.2,.6,'#222','#eee'); l.position.set(0,2.4,2.52); g.add(l); }
 }
 equip('tGas','Tanque gasoil','Campamento','Servicios','Tanque horizontal de gasoil de 10.000 L dentro de cubeto de contención. Producto inflamable: mantener distancia a fuentes de ignición.',0xf2f2f0,W(165,240),3.9,hTank);
@@ -595,7 +592,6 @@ pipe([W(1335,371,Y),W(1335,436,Y)],C.red,.16);
 pipe([W(1030+3.4*14,578-14,Y),W(1165,564,Y),W(1165,468,Y),W(1190,468,Y)],C.red,.18);
 pipe([W(1030+3.4*14,578,Y),W(1300,578,Y),W(1510,578,Y)],C.purple,.24,5);
 pipe([W(1375,468,Y),W(1470,512,Y),W(1500,532,Y)],C.cyan,.2);
-pipe([W(238,170,.5),W(238,440,.5),W(262,455,.5),W(290,455,.6)],C.red,.12,8);
 // soportes bajo línea
 for(let x=W(380,0).x; x<W(1000,0).x; x+=5){ if(Math.abs(x-W(508,0).x)<2.5||Math.abs(x-W(665,0).x)<4||Math.abs(x-W(848,0).x)<3) continue; pipes.add(bx(.5,.8,.5,C.dark,x,.4,0)); }
 for(let x=W(1100,0).x; x<W(1500,0).x; x+=5.5) pipes.add(bx(.5,.8,.5,C.dark,x,.4,(578-455)/14));
