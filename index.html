@@ -283,8 +283,9 @@ const camp=equip('camp','Trailers habitacionales','Campamento','Alojamiento','M�
   g.add(bx(4.6,.1,28.5,C.concrete,0,.05,2.35));
 });
 // Tanque de gasoil horizontal de 10.000 L en cubeto, según foto
-function hTank(g){
-  const L=4.6,R=1.05,BL=6.4,BW=3.4,BH=.9,cyc=1.75;
+function hTank(g,kind='gasoil'){
+  const ag=kind==='agua';
+  const L=ag?5.6:4.6,R=ag?1.12:1.05,BL=ag?7.2:6.4,BW=ag?3.3:3.4,BH=ag?1.0:.9,cyc=ag?1.95:1.75;
   const wh=PH(0xf2f2f0,{roughness:.45,metalness:.1,clearcoat:.2});
   g.add(bx(BL+.2,.1,BW+.2,C.concrete,0,.05,0));
   [-1,1].forEach(sz=>g.add(rb(BL,BH,.06,wh,0,BH/2+.1,sz*BW/2,.02))); [-1,1].forEach(sx=>g.add(rb(.06,BH,BW,wh,sx*BL/2,BH/2+.1,0,.02)));
@@ -295,12 +296,27 @@ function hTank(g){
   [-1.7,-.6,.6,1.7].forEach(x=>{ const o=tor(R+.012,.015,wh,x,cyc,0,0); o.rotation.set(0,Math.PI/2,0); g.add(o); });
   g.add(rb(.95,.3,.7,wh,-1.2,cyc+R+.08,0,.04)); g.add(cy(.045,.45,C.steel,1.3,cyc+R+.15,0,10)); g.add(cy(.07,.04,C.steel,1.3,cyc+R+.4,0,10));
   const t=canvasTex(512,(c,z)=>{ c.clearRect(0,0,z,z); c.fillStyle='#111'; c.textAlign='center'; c.font='bold 36px Arial'; c.fillText('PRODUCTO CONTENIDO',z/2,80); c.font='900 64px Arial'; c.fillText('GAS OIL',z/2,155);
+    if(ag){ c.clearRect(0,0,z,z); c.fillStyle='#1f5fae'; c.textAlign='center'; c.font='bold 36px Arial'; c.fillText('PRODUCTO CONTENIDO',z/2,120); c.font='900 110px Arial'; c.fillText('AGUA',z/2,260); return; }
     c.save(); c.translate(150,300); c.rotate(Math.PI/4); c.fillStyle='#d52b1e'; c.fillRect(-72,-72,144,144); c.fillStyle='#fff'; c.fillRect(-62,-62,124,124); c.restore();
     c.fillStyle='#d52b1e'; c.font='900 70px Arial'; c.fillText('3',150,325); c.fillStyle='#e8511d'; c.fillRect(300,235,140,90); c.fillStyle='#111'; c.font='bold 30px Arial'; c.fillText('30',370,275); c.fillText('1202',370,312);
     c.font='bold 30px Arial'; c.fillText('CAPACIDAD 10.000 LTS.',z/2,440); });
   const dec=new THREE.Mesh(new THREE.PlaneGeometry(1.9,1.9),new THREE.MeshStandardMaterial({map:t,transparent:true,roughness:.6})); dec.rotation.y=Math.PI/2; dec.position.set(L/2+R*.2+.015,cyc,0); g.add(dec);
   [[.9,.3],[.55,.6]].forEach(([z,y])=>{ g.add(cyX(.07,.3,wh,BL/2+.12,y,z,14)); g.add(cyX(.1,.05,wh,BL/2+.28,y,z,14)); });
   [-1,1].forEach(sz=>{ const lp=tor(.12,.016,wh,BL/2+.02,.3,sz*(BW/2-.1),0); lp.rotation.set(0,Math.PI/2,0); g.add(lp); });
+  if(ag){
+    // marco trasero de izaje con orejas y rodillos
+    [-1,1].forEach(sz=>{ const z=sz*(BW/2-.1);
+      g.add(rb(.28,2.3,.22,wh,BL/2+.25,1.25,z,.03)); g.add(rb(.5,.4,.22,wh,BL/2+.25,2.55,z,.03)); g.add(tor(.09,.025,C.dark,BL/2+.25,2.6,z+.115,0));
+      g.add(cyZ(.11,.5,wh,BL/2+.4,.28,z+sz*.15,18)); });
+    g.add(rb(.2,.2,BW,wh,BL/2+.25,.28,0,.02)); g.add(rb(.18,.18,BW,wh,BL/2+.25,2.25,0,.02));
+    // escalera con arco de seguridad hacia la tapa trasera
+    const lx=BL/2-.45,lz=BW/2-.5,top=cyc+R-.05;
+    [-.2,.2].forEach(d=>g.add(cy(.025,top,wh,lx,top/2,lz+d,8)));
+    for(let y=.3;y<top;y+=.3) g.add(cyZ(.02,.4,wh,lx,y,lz,6));
+    for(let y=1.6;y<top-.2;y+=.7){ const a=tor(.3,.015,wh,lx,y,lz,0); a.rotation.set(0,Math.PI/2,0); g.add(a); }
+    // viga de izaje y boca de hombre
+    g.add(rb(1.6,.14,.3,C.dark,0,cyc+R+.22,0,.03));
+  }
 }
 function vtank(g,mat,name){
   g.add(bx(9.6,.12,9.6,C.concrete,0,.06,0));
@@ -313,7 +329,7 @@ function vtank(g,mat,name){
   { const l=label3(name,2.2,.6,'#222','#eee'); l.position.set(0,2.4,2.52); g.add(l); }
 }
 equip('tGas','Tanque gasoil','Campamento','Servicios','Tanque horizontal de gasoil de 10.000 L dentro de cubeto de contención. Producto inflamable: mantener distancia a fuentes de ignición.',0xf2f2f0,W(165,240),3.9,hTank);
-equip('tAgua','Tanque agua','Campamento','Servicios','Tanque de agua para el campamento, en cubeto.',0x9db8e8,W(165,360),7.8,g=>vtank(g,C.waterB,'AGUA'));
+equip('tAgua','Tanque agua','Campamento','Servicios','Tanque horizontal de agua en cubeto, con marco trasero de izaje, rodillos y escalera con arco de seguridad.',0xf2f2f0,W(165,360),4.6,g=>hTank(g,'agua'));
 equip('usina','Usina','Campamento','Energía','Contenedor de generación eléctrica del campamento (grupo electrógeno con radiador y escapes).',0xb8bcc2,W(160,125),6.6,g=>{
   g.add(bx(11,.12,6.4,C.concrete,0,.06,0));
   g.add(rb(9.2,2.8,3.6,corrugated(0xd7dadd,14),0,1.75,0,.05));
