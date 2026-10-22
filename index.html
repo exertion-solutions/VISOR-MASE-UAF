@@ -570,28 +570,45 @@ equip('ign','Encendido a distancia','Fosa de quema','Seguridad','Panel de encend
 });
 
 // ================== FOSA DE QUEMA ==================
+// Fosa de quema real: excavación con montículos de tierra, cañería que entra y cabezal quemador (ver fotos)
+function mound(g,w,d,h,x,z,seed){
+  const geo=new THREE.BoxGeometry(1,1,1,14,5,10); const pa=geo.attributes.position;
+  for(let i=0;i<pa.count;i++){ let X=pa.getX(i),Y=pa.getY(i),Z=pa.getZ(i); const k=1-.55*(Y+.5); X*=k; Z*=k;
+    const n=Math.sin(X*9+seed)*.05+Math.cos(Z*8+seed*2)*.05+Math.sin((X+Z)*17+seed)*.025; pa.setXYZ(i,X+n*.5,Y+(Y>0?n:0),Z+n*.5); }
+  geo.scale(w,h,d); geo.translate(0,h/2,0); geo.computeVertexNormals();
+  const m=new THREE.Mesh(geo,dirtMat); m.position.set(x,0,z); m.castShadow=m.receiveShadow=true; g.add(m); return m;
+}
+const dirtMap=gravelMap.clone(); dirtMap.repeat.set(5,3); dirtMap.needsUpdate=true; const dirtBump=gravelBump.clone(); dirtBump.repeat.set(5,3); dirtBump.needsUpdate=true;
+const dirtMat=ST(0x7b624a,{metalness:0,roughness:1,map:dirtMap,bumpMap:dirtBump,bumpScale:5});
+const burnerMat=ST(0x5b3b27,{metalness:.7,roughness:.75,roughnessMap:rustRough});
+const oilMat=PH(0x0c0a08,{roughness:.18,metalness:0,clearcoat:.7});
 const fireG=new THREE.Group(), pitC=W(1555,550);
-equip('fosa','Fosa de quema','Fosa de quema','Quemador','Fosa de quema (burn pit) para disposición controlada de gas y fluido de ensayo. Mantener distancia de seguridad.',0xff6a00,pitC,11,g=>{
-  const s=10; g.add(bx(s,.1,s,C.ash,0,.06,0));
-  [[0,-s/2],[0,s/2]].forEach(([x,z])=>g.add(rb(s+1.6,.9,1.3,C.soil,x,.4,z,.35))); [[-s/2,0],[s/2,0]].forEach(([x,z])=>g.add(rb(1.3,.9,s+1.6,C.soil,x,.4,z,.35)));
-  const rg=new THREE.DodecahedronGeometry(1,0); const im=new THREE.InstancedMesh(rg,C.rock,70); const m=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler(),p=new THREE.Vector3(),sc=new THREE.Vector3();
-  for(let i=0;i<70;i++){ const a=i/70*4; const side=Math.floor(a), t=(a%1)*2-1; const d=s/2+rnd(-.5,.7);
-    p.set(side===0?t*s/2:side===1?d:side===2?-t*s/2:-d, rnd(.2,.8), side===0?-d:side===1?t*s/2:side===2?d:-t*s/2);
-    const k=rnd(.3,.7); sc.set(k,k*rnd(.6,1),k); e.set(rnd(0,3),rnd(0,3),rnd(0,3)); q.setFromEuler(e); m.compose(p,q,sc); im.setMatrixAt(i,m); }
+equip('fosa','Fosa de quema','Fosa de quema','Quemador','Fosa de quema (burn pit): excavación con montículos de tierra y cabezal quemador donde llega la línea de ensayo. Disposición controlada de gas y fluido. Mantener distancia de seguridad.',0xff6a00,pitC,10,g=>{
+  g.add(bx(11,.05,11,C.ash,0,.07,0)); g.add(bx(8,.04,8.5,oilMat,.4,.1,.2));
+  mound(g,14,5.5,3.4,7.2,0,1);  mound(g,13,4.6,2.6,.6,-6.6,2.3);  mound(g,12,4.4,2.4,1.6,6.8,4.1);  mound(g,4.5,3.4,1.2,-5.8,-5.3,5.2);
+  const rg=new THREE.DodecahedronGeometry(1,0), im=new THREE.InstancedMesh(rg,C.rock,46), mm=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler(),pp=new THREE.Vector3(),sc=new THREE.Vector3();
+  for(let i=0;i<46;i++){ const a=rnd(-.4,3.5); const R=rnd(4.4,6.2); pp.set(Math.cos(a)*R*1.05+1,rnd(.1,.5),Math.sin(a)*R); const k=rnd(.2,.55); sc.set(k,k*rnd(.5,.9),k); e.set(rnd(0,3),rnd(0,3),rnd(0,3)); q.setFromEuler(e); mm.compose(pp,q,sc); im.setMatrixAt(i,mm); }
   im.castShadow=im.receiveShadow=true; g.add(im);
-  g.add(cy(.45,.2,C.dark,0,.2,0,16));
-  fireG.position.y=.2; g.add(fireG);
+  // línea de ensayo (violeta) hasta el cabezal quemador
+  g.add(cyX(.24,2.0,C.purple,-2.2,Y,2.0)); flangeAt(g,new THREE.Vector3(-1.9,Y,2.0),new THREE.Vector3(1,0,0),.24);
+  [-2.6,-1.5].forEach(x=>{ [-1,1].forEach(sz=>{ const l=bx(.1,1.15,.1,C.dark,x,.55,2.0+sz*.45); l.rotation.x=-sz*.35; g.add(l); }); });
+  g.add(cyX(.5,1.4,burnerMat,-.4,Y,2.0,28)); g.add(cyX(.54,.12,burnerMat,.32,Y,2.0,28)); g.add(cyX(.35,.05,C.ash,.4,Y,2.0,20));
+  for(let i=0;i<14;i++){ const a=i/14*Math.PI*2; g.add(cyX(.06,.05,C.ash,-.4,Y+Math.cos(a)*.5,2.0+Math.sin(a)*.5,8)); }
+  // línea de pileta de ensayo (celeste) con boquilla
+  g.add(cyX(.2,2.2,C.cyan,-3.4,Y,-1.3)); g.add(cy(.2,.8,C.cyan,-2.3,Y+.4,-1.3,14)); g.add(sph(.22,C.cyan,-2.3,Y+.8,-1.3));
+  g.add(cy(.26,.4,burnerMat,-2.3,Y+.8,-1.3,14).translateY(.2));
+  fireG.position.set(.5,Y,2.0); g.add(fireG);
 });
 const flameTex=canvasTex(128,(g,z)=>{ const gr=g.createRadialGradient(z/2,z*.64,2,z/2,z*.64,z*.5); gr.addColorStop(0,'rgba(255,240,150,1)'); gr.addColorStop(.25,'rgba(255,190,30,.98)'); gr.addColorStop(.55,'rgba(245,95,0,.8)'); gr.addColorStop(1,'rgba(170,25,0,0)'); g.fillStyle=gr; g.fillRect(0,0,z,z); });
 const flames=[];
-for(let i=0;i<14;i++){ const h=rnd(5,11),w=rnd(2.2,4.2); const f=new THREE.Sprite(new THREE.SpriteMaterial({map:flameTex,transparent:true,blending:THREE.NormalBlending,depthWrite:false,fog:false,opacity:rnd(.8,1)}));
-  f.position.set(rnd(-1.8,1.8),h/2,rnd(-1.8,1.8)); f.userData={h,w,ph:Math.random()*10,sp:3+Math.random()*5}; fireG.add(f); flames.push(f); }
+for(let i=0;i<14;i++){ const h=rnd(4.5,10),w=rnd(1.4,3.2); const f=new THREE.Sprite(new THREE.SpriteMaterial({map:flameTex,transparent:true,blending:THREE.NormalBlending,depthWrite:false,fog:false,opacity:rnd(.8,1)}));
+  f.position.set(0,h/2,0); f.userData={h,w,x0:rnd(-.4,.6),z0:rnd(-.5,.5),ph:Math.random()*10,sp:3+Math.random()*5}; fireG.add(f); flames.push(f); }
 const smokeTex=canvasTex(64,(g,s)=>{ const r=g.createRadialGradient(s/2,s/2,2,s/2,s/2,s/2); r.addColorStop(0,'rgba(150,150,150,.5)'); r.addColorStop(1,'rgba(150,150,150,0)'); g.fillStyle=r; g.fillRect(0,0,s,s); });
-const smoke=[]; for(let i=0;i<14;i++){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:smokeTex,transparent:true,depthWrite:false,depthTest:true,fog:false,color:0xb8b8b8})); sp.userData={ph:i/14}; fireG.add(sp); smoke.push(sp); }
+const smoke=[]; for(let i=0;i<14;i++){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:smokeTex,transparent:true,depthWrite:false,depthTest:true,fog:false,color:0xb8b8b8})); sp.userData={ph:i/14}; if(i%2) sp.material.color.set(0xffffff); fireG.add(sp); smoke.push(sp); }
 const sparkG=new THREE.BufferGeometry(); const sparkN=60; sparkG.setAttribute('position',new THREE.BufferAttribute(new Float32Array(sparkN*3),3));
 const sparks=new THREE.Points(sparkG,new THREE.PointsMaterial({color:0xffc060,size:.18,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,fog:false})); sparks.frustumCulled=false; fireG.add(sparks);
 const sparkD=Array.from({length:sparkN},()=>({t:Math.random()*3,vx:rnd(-.6,.6),vz:rnd(-.6,.6),vy:rnd(2,5)}));
-const fireLight=new THREE.PointLight(0xff7a1a,60,32,1.6); fireLight.position.set(pitC.x,6,pitC.z); scene.add(fireLight);
+const fireLight=new THREE.PointLight(0xff7a1a,60,32,1.6); fireLight.position.set(pitC.x+1.5,4,pitC.z+2); scene.add(fireLight);
 
 // ================== TUBERÍAS ==================
 const pipes=new THREE.Group(); scene.add(pipes);
@@ -606,7 +623,7 @@ pipe([W(1204.2,360,Y),W(1225,364,Y)],C.red,.16);
 pipe([W(1335,371,Y),W(1335,436,Y)],C.red,.16);
 pipe([W(1030+3.4*14,578-14,Y),W(1165,564,Y),W(1165,468,Y),W(1190,468,Y)],C.red,.18);
 pipe([W(1030+3.4*14,578,Y),W(1300,578,Y),W(1510,578,Y)],C.purple,.24,5);
-pipe([W(1375,468,Y),W(1470,512,Y),W(1500,532,Y)],C.cyan,.2);
+pipe([W(1375,468,Y),W(1470,512,Y),W(1505,532,Y)],C.cyan,.2);
 // soportes bajo línea
 for(let x=W(380,0).x; x<W(1000,0).x; x+=5){ if(Math.abs(x-W(508,0).x)<2.5||Math.abs(x-W(665,0).x)<4||Math.abs(x-W(848,0).x)<3) continue; pipes.add(bx(.5,.8,.5,C.dark,x,.4,0)); }
 for(let x=W(1100,0).x; x<W(1500,0).x; x+=5.5) pipes.add(bx(.5,.8,.5,C.dark,x,.4,(578-455)/14));
@@ -682,8 +699,8 @@ function loop(){
   if(anim){ anim.t=Math.min(1,anim.t+dt/1.3); const k=anim.t<.5?2*anim.t*anim.t:1-Math.pow(-2*anim.t+2,2)/2;
     camera.position.lerpVectors(anim.p0,anim.p1,k); controls.target.lerpVectors(anim.t0,anim.t1,k); if(anim.t>=1) anim=null; }
   if(showF){
-    flames.forEach(f=>{ const u=f.userData,k=.78+.3*Math.sin(t*u.sp+u.ph)+.1*Math.sin(t*13+u.ph*2); f.scale.set(u.w*(1+.18*Math.sin(t*7+u.ph)),u.h*k,1); f.position.set(f.position.x+Math.sin(t*2+u.ph)*.004,u.h*k*.42,f.position.z); });
-    smoke.forEach(s=>{ const p=(t*.12+s.userData.ph)%1; s.position.set(Math.sin(p*5+s.userData.ph*9)*.8+p*4,6+p*14,Math.cos(p*4+s.userData.ph*7)*.8); s.scale.setScalar(2+p*6); s.material.opacity=Math.sin(p*Math.PI)*.35; });
+    flames.forEach(f=>{ const u=f.userData,k=.78+.3*Math.sin(t*u.sp+u.ph)+.1*Math.sin(t*13+u.ph*2); f.scale.set(u.w*(1+.18*Math.sin(t*7+u.ph)),u.h*k,1); f.position.set(u.x0+u.h*k*.26+Math.sin(t*3+u.ph)*.15,.4+u.h*k*.44,u.z0); });
+    smoke.forEach(s=>{ const p=(t*.12+s.userData.ph)%1; s.position.set(1+p*9+Math.sin(p*5+s.userData.ph*9)*.8,3+p*10,Math.cos(p*4+s.userData.ph*7)*1.2); s.scale.setScalar(2+p*7); s.material.opacity=Math.sin(p*Math.PI)*(s.userData.ph*14%2<1?.28:.4); });
     const pa=sparkG.attributes.position; sparkD.forEach((d,i)=>{ d.t+=dt; if(d.t>3){ d.t=0; d.vx=rnd(-.6,.6); d.vz=rnd(-.6,.6); d.vy=rnd(2,5); } pa.setXYZ(i,d.vx*d.t*2,1+d.vy*d.t-.6*d.t*d.t*.5,d.vz*d.t*2); }); pa.needsUpdate=true;
     fireLight.intensity=55+Math.sin(t*20)*9+Math.sin(t*13)*6;
   }
